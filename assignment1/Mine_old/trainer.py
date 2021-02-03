@@ -73,6 +73,9 @@ class BaseTrainer:
         )
 
         global_step = 0
+        # Dummy variable, used for Early Stopping.
+        local_step = 0
+        val_min = 1000000
         for epoch in range(num_epochs):
             train_loader = utils.batch_loader(
                 self.X_train, self.Y_train, self.batch_size, shuffle=self.shuffle_dataset)
@@ -87,18 +90,20 @@ class BaseTrainer:
                     train_history["accuracy"][global_step] = accuracy_train
                     val_history["loss"][global_step] = val_loss
                     val_history["accuracy"][global_step] = accuracy_val
-                    
+
                     # TODO (Task 2d): Implement early stopping here.
                     # You can access the validation loss in val_history["loss"]
 
-                    # min_step: the training step when the loss was minimal
-                    if len(val_history["loss"]) > 10:
-                        min_step = min(val_history["loss"].items(), key=
-                                       lambda x: x[1])[0]
-                        # if min_step is not in the last 10 loss result, then stop the training
-                        if min_step not in sorted(val_history['loss'].keys(), reverse=True)[:10]:
-                            print("Early stopping after {} epoch".format(epoch))
-                            return train_history, val_history
+                    if local_step < 10:
+                        if val_history["loss"][global_step] > val_min:
+                            local_step += 1
+                        else:
+                            val_min = val_history["loss"][global_step]
+                            local_step = 0
+                    else:
+                        # val_history["loss"][global_step] = val_min
+                        print(f"Early stopping after {epoch} epochs")
+                        return train_history, val_history
 
                 global_step += 1
         return train_history, val_history

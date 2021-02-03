@@ -16,12 +16,11 @@ def calculate_accuracy(X: np.ndarray, targets: np.ndarray, model: BinaryModel) -
         Accuracy (float)
     """
     # TODO Implement this function (Task 2c)
-    # First computation of the prediction
-    outputs = model.forward(X)
-
-    # Convert the prediction into 0 and 1, using 0.5 as threshold. Then "Accuracy" is computed
-    accuracy = np.sum(np.where(outputs > 0.5, 1, 0) == targets)/targets.shape[0]
-    
+    y_pred = model.forward(X)
+    # print(f'Shape of the prediction: {y_pred.shape}')
+    y_pred_bin = [1 if pred >= 0.5 else 0 for pred in y_pred]
+    accuracy = np.sum(y_pred_bin == targets.flatten()) / targets.shape[0]
+    # print(accuracy)
     return accuracy
 
 
@@ -40,18 +39,18 @@ class LogisticTrainer(BaseTrainer):
             loss value (float) on batch
         """
         # TODO: Implement this function (task 2b)
-        # Forward step (retrieving the predictions)
-        outputs = self.model.forward(X_batch)
+        # Forward propagation
+        logits = self.model.forward(X_batch)
 
-        # Backward step
-        self.model.backward(X_batch, outputs, Y_batch)
+        # Back propagation
+        self.model.backward(X_batch, logits, Y_batch)
+
+        # Loss calculation
+        loss = cross_entropy_loss(Y_batch, logits)
 
         # Updating the weights
-        self.model.w -= self.model.grad*self.learning_rate
+        self.model.w = self.model.w - self.learning_rate*self.model.grad
 
-        # Computing the loss
-        loss = cross_entropy_loss(Y_batch, outputs)
-        
         return loss
 
     def validation_step(self):
@@ -74,9 +73,10 @@ class LogisticTrainer(BaseTrainer):
             X_val, Y_val, self.model)
         return loss, accuracy_train, accuracy_val
 
+
 if __name__ == "__main__":
     # hyperparameters DO NOT CHANGE IF NOT SPECIFIED IN ASSIGNMENT TEXT
-    num_epochs = 500
+    num_epochs = 50 # 50 default
     learning_rate = 0.05
     batch_size = 128
     shuffle_dataset = False
@@ -91,9 +91,8 @@ if __name__ == "__main__":
 
     # ANY PARTS OF THE CODE BELOW THIS CAN BE CHANGED.
 
-    # Initialize the model
-    model = BinaryModel(X_train.shape[1])
-
+    # Intialize model
+    model = BinaryModel()
     # Train model
     trainer = LogisticTrainer(
         model, learning_rate, batch_size, shuffle_dataset,
@@ -101,11 +100,12 @@ if __name__ == "__main__":
     )
     train_history, val_history = trainer.train(num_epochs)
 
-    # Plot and print everything you want of information    
+    # Plot and print everything you want of information
+
     print("Final Train Cross Entropy Loss:",
-        cross_entropy_loss(Y_train, model.forward(X_train)))
+          cross_entropy_loss(Y_train, model.forward(X_train)))
     print("Final Validation Cross Entropy Loss:",
-        cross_entropy_loss(Y_val, model.forward(X_val)))
+          cross_entropy_loss(Y_val, model.forward(X_val)))
     print("Train accuracy:", calculate_accuracy(X_train, Y_train, model))
     print("Validation accuracy:", calculate_accuracy(X_val, Y_val, model))
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.xlabel("Number of Training Steps")
     plt.ylabel("Cross Entropy Loss - Average")
-    # plt.savefig("task2b_binary_train_loss.png")
+    plt.savefig("task2b_binary_train_loss.png")
     plt.show()
 
     # Plot accuracy
@@ -127,13 +127,13 @@ if __name__ == "__main__":
     plt.xlabel("Number of Training Steps")
     plt.ylabel("Accuracy")
     plt.legend()
-    # plt.savefig("task2b_binary_train_accuracy.png")
+    plt.savefig("task2b_binary_train_accuracy.png")
     plt.show()
 
     # Task 2e - Create a comparison between training with and without shuffling
     shuffle_dataset = True
     # Intialize model
-    model = BinaryModel(X_train.shape[1])
+    model = BinaryModel()
     # Train model
     trainer = LogisticTrainer(
         model, learning_rate, batch_size, shuffle_dataset,
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     plt.legend()
     plt.xlabel("Number of Training Steps")
     plt.ylabel("Cross Entropy Loss - Average")
-    # plt.savefig("task2e_train_loss_with_shuffle.png")
+    plt.savefig("task2e_train_loss_with_shuffle.png")
     plt.show()
 
     plt.ylim([0.93, .99])
@@ -159,5 +159,5 @@ if __name__ == "__main__":
     plt.xlabel("Number of Training Steps")
     plt.ylabel("Accuracy")
     plt.legend()
-    # plt.savefig("task2e_train_accuracy_shuffle_difference.png")
+    plt.savefig("task2e_train_accuracy_shuffle_difference.png")
     plt.show()

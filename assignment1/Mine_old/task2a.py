@@ -12,13 +12,16 @@ def pre_process_images(X: np.ndarray):
     """
     assert X.shape[1] == 784,\
         f"X.shape[1]: {X.shape[1]}, should be 784"
-    
+
     # TODO implement this function (Task 2a)
-    # We rescaled the images with a min-max normalization
-    X = 2 * ((X - X.min())/(X.max() - X.min()))-1
+    # Normalization in the range [-1, 1]
+    X = 2 * ((X - np.min(X)) / (np.max(X) - np.min(X))) - 1
 
     # Bias trick
-    X = np.concatenate((X, np.ones((X.shape[0], 1))), axis=1)
+    bias = np.ones((X.shape[0], 1))
+    X = np.concatenate([X, bias], axis=1)
+
+    # print(f'Shape the normalized image: {X.shape} \nMax: {np.max(X)}\nMin: {np.min(X)}')
     return X
 
 
@@ -31,21 +34,23 @@ def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray) -> float:
         Cross entropy error (float)
     """
     # TODO implement this function (Task 2a)
-    # Computing the cross entropy loss
-    loss = np.average(-(targets*np.log(outputs)+(1-targets)*np.log(1-outputs)))
+    # Cross entropy loss (cel) for each instance
+    cel = -(targets*np.log(outputs) + (1-targets)*np.log(1-outputs))
     assert targets.shape == outputs.shape,\
         f"Targets shape: {targets.shape}, outputs: {outputs.shape}"
-    
-    return loss
+
+    mean_cel = np.mean(cel)
+    # print(f'Cross entropy: {mean_cel}')
+    return mean_cel
 
 
 class BinaryModel:
-    # We add "input_size" to the initialization of the BinaryModel object
-    def __init__(self, input_size):
+
+    def __init__(self):
         # Define number of input nodes
-        self.I = input_size
+        self.I = 785
         self.w = np.zeros((self.I, 1))
-        self.grad = None
+        self.grad = np.zeros_like(self.w)
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
@@ -55,9 +60,9 @@ class BinaryModel:
             y: output of model with shape [batch size, 1]
         """
         # TODO implement this function (Task 2a)
-        # Logistic regression
-        y = 1/(1+np.exp(-np.matmul(X, self.w)))
-        
+        a = X.dot(self.w)
+        y = 1/(1 + np.exp(-a))
+        # print('Output shape from the "forward": ', y.shape)
         return y
 
     def backward(self, X: np.ndarray, outputs: np.ndarray, targets: np.ndarray) -> None:
@@ -71,12 +76,13 @@ class BinaryModel:
         # TODO implement this function (Task 2a)
         assert targets.shape == outputs.shape,\
             f"Output shape: {outputs.shape}, targets: {targets.shape}"
-
-        # Retrieving the different gradient (retrieved by computing the derivative of the loss in respect to the weight)
-        self.grad = -1*np.matmul(np.transpose(X), targets-outputs)/X.shape[0]
-
+        self.grad = np.zeros_like(self.w)
         assert self.grad.shape == self.w.shape,\
             f"Grad shape: {self.grad.shape}, w: {self.w.shape}"
+
+        self.grad = np.mean((-X * (targets - outputs)), axis=0).reshape((X.shape[1], 1))
+
+        # print(f'Shape of gradient: {self.grad.shape}')
 
     def zero_grad(self) -> None:
         self.grad = None
@@ -110,6 +116,7 @@ def gradient_approximation_test(model: BinaryModel, X: np.ndarray, Y: np.ndarray
             f"If this test fails there could be errors in your cross entropy loss function, " \
             f"forward function or backward function"
 
+
 if __name__ == "__main__":
     category1, category2 = 2, 3
     X_train, Y_train, *_ = utils.load_binary_dataset(category1, category2)
@@ -120,7 +127,7 @@ if __name__ == "__main__":
         f"Expected X_train to have 785 elements per image. Shape was: {X_train.shape}"
 
     # Simple test for forward pass. Note that this does not cover all errors!
-    model = BinaryModel(X_train.shape[1])
+    model = BinaryModel()
     logits = model.forward(X_train)
     np.testing.assert_almost_equal(
         logits.mean(), .5,

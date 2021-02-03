@@ -16,22 +16,23 @@ def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray):
     assert targets.shape == outputs.shape,\
         f"Targets shape: {targets.shape}, outputs: {outputs.shape}"
 
-    # Computing the cross-entropy cost function for multiple classes
-    loss = np.average(-np.sum(targets * np.log(outputs), axis=1))
-    
-    return loss
+    cel = np.zeros((targets.shape[0], 1))
+    for num in range(targets.shape[1]):
+        cel -= (targets[:, num]*np.log(outputs[:, num])).reshape((targets.shape[0], 1))
+
+    return np.mean(cel)
+
 
 class SoftmaxModel:
 
-    # We add the "Input_size" to the initialization
-    def __init__(self, input_size, output_size, l2_reg_lambda: float):
+    def __init__(self, l2_reg_lambda: float):
         # Define number of input nodes
-        self.I = input_size
+        self.I = 785
 
         # Define number of output nodes
-        self.num_outputs = output_size
+        self.num_outputs = 10
         self.w = np.zeros((self.I, self.num_outputs))
-        self.grad = None
+        self.grad = np.zeros_like(self.w)
 
         self.l2_reg_lambda = l2_reg_lambda
 
@@ -43,12 +44,16 @@ class SoftmaxModel:
             y: output of model with shape [batch size, num_outputs]
         """
         # TODO implement this function (Task 3a)
-        # Computing the numerator
-        exp = np.exp(np.matmul(X, self.w))
+        # print(f'Shape weights: {self.w.shape}')
+        # print(f'Shape input: {X.shape}')
+        z = X.dot(self.w)
+        y = np.zeros((X.shape[0], self.num_outputs))
+        exp_tot = np.sum(np.exp(z), axis=1)
+        # Implementing the softmax layer
+        for num in range(self.num_outputs):
+            # print(f'Shape  of z {z.shape}')
+            y[:, num] = np.exp(z[:, num]) / exp_tot
 
-        # Computing the output for the "num_outputs" classes
-        y = exp/np.sum(exp, axis=1)[:, None]
-        
         return y
 
     def backward(self, X: np.ndarray, outputs: np.ndarray, targets: np.ndarray) -> None:
@@ -65,12 +70,11 @@ class SoftmaxModel:
         # which is defined in the constructor.
         assert targets.shape == outputs.shape,\
             f"Output shape: {outputs.shape}, targets: {targets.shape}"
-
-        # Retrieving the different gradients
-        self.grad = -np.matmul(np.transpose(X), targets-outputs)/X.shape[0] + self.l2_reg_lambda *2 * self.w
-        
+        self.grad = np.zeros_like(self.w)
         assert self.grad.shape == self.w.shape,\
              f"Grad shape: {self.grad.shape}, w: {self.w.shape}"
+
+        self.grad = -np.matmul(np.transpose(X), (targets-outputs))/X.shape[0] + self.l2_reg_lambda * 2 * self.w
 
     def zero_grad(self) -> None:
         self.grad = None
@@ -84,13 +88,13 @@ def one_hot_encode(Y: np.ndarray, num_classes: int):
     Returns:
         Y: shape [Num examples, num classes]
     """
-    # Initialization of the one-hot matrix
-    res = np.zeros((Y.shape[0], num_classes))
-    # We use as index the value of the number (e.g. value = 4 is encoded as -> [0,0,0,0,1,0,0,0,0,0])
-    for i, value in enumerate(Y):
-        res[i, value] = 1
-    
-    return res
+    Y_hot = np.zeros((Y.shape[0], num_classes))
+    for idx in range(len(Y)):
+        hot_position = Y[idx]
+        Y_hot[idx, hot_position] = 1
+
+    return Y_hot
+
 
 def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarray):
     """
@@ -122,6 +126,7 @@ def gradient_approximation_test(model: SoftmaxModel, X: np.ndarray, Y: np.ndarra
                 f"If this test fails there could be errors in your cross entropy loss function, " \
                 f"forward function or backward function"
 
+
 if __name__ == "__main__":
     # Simple test on one-hot encoding
     Y = np.zeros((1, 1), dtype=int)
@@ -137,7 +142,7 @@ if __name__ == "__main__":
         f"Expected X_train to have 785 elements per image. Shape was: {X_train.shape}"
 
     # Simple test for forward pass. Note that this does not cover all errors!
-    model = SoftmaxModel(X_train.shape[1], Y_train.shape[1], 0.0)
+    model = SoftmaxModel(0.0)
     logits = model.forward(X_train)
     np.testing.assert_almost_equal(
         logits.mean(), 1/10,
