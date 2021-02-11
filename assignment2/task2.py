@@ -1,5 +1,7 @@
 import numpy as np
 import utils
+import time # added
+import os   # added
 import matplotlib.pyplot as plt
 from task2a import cross_entropy_loss, SoftmaxModel, one_hot_encode, pre_process_images
 from trainer import BaseTrainer
@@ -16,7 +18,11 @@ def calculate_accuracy(X: np.ndarray, targets: np.ndarray, model: SoftmaxModel) 
         Accuracy (float)
     """
     # TODO: Implement this function (copy from last assignment)
-    accuracy = 0
+    # First computation of the prediction
+    outputs = model.forward(X)
+
+    # Convert the prediction into 0 and 1 by setting as 1 the highest value in the 10 outputs, the rest will be 0.
+    accuracy = np.sum(outputs.argmax(1) == targets.argmax(1))/targets.shape[0]
     return accuracy
 
 
@@ -48,9 +54,18 @@ class SoftmaxTrainer(BaseTrainer):
         """
         # TODO: Implement this function (task 2c)
 
-        loss = 0
+        # Forward step (retrieving the predictions)
+        outputs = self.model.forward(X_batch)
 
-        loss = cross_entropy_loss(Y_batch, logits)  # sol
+        # Backward step
+        self.model.backward(X_batch, outputs, Y_batch)
+
+        # Updating the weights
+        self.model.ws[0] -= self.model.grads[0] * self.learning_rate
+        self.model.ws[1] -= self.model.grads[1] * self.learning_rate
+
+        # Computing the loss
+        loss = cross_entropy_loss(Y_batch, outputs)
 
         return loss
 
@@ -108,7 +123,9 @@ if __name__ == "__main__":
         model, learning_rate, batch_size, shuffle_data,
         X_train, Y_train, X_val, Y_val,
     )
+    tic = time.clock()
     train_history, val_history = trainer.train(num_epochs)
+    elapsed = time.clock() - tic
 
     print("Final Train Cross Entropy Loss:",
           cross_entropy_loss(Y_train, model.forward(X_train)))
@@ -120,7 +137,7 @@ if __name__ == "__main__":
     # Plot loss for first model (task 2c)
     plt.figure(figsize=(20, 12))
     plt.subplot(1, 2, 1)
-    plt.ylim([0., .5])
+    plt.ylim([0., 0.5])
     utils.plot_loss(train_history["loss"],
                     "Training Loss", npoints_to_average=10)
     utils.plot_loss(val_history["loss"], "Validation Loss")
@@ -129,10 +146,21 @@ if __name__ == "__main__":
     plt.ylabel("Cross Entropy Loss - Average")
     # Plot accuracy
     plt.subplot(1, 2, 2)
-    plt.ylim([0.90, .99])
+    plt.ylim([0.9, .99])
     utils.plot_loss(train_history["accuracy"], "Training Accuracy")
     utils.plot_loss(val_history["accuracy"], "Validation Accuracy")
     plt.xlabel("Number of Training Steps")
     plt.ylabel("Accuracy")
+    plt.suptitle(f'Elapsed time (seconds): {elapsed:.4}',  fontsize=14, fontweight='bold')
     plt.legend()
-    plt.savefig("task2c_train_loss.png")
+
+    # Saving image
+    path = r'C:\Users\aless\Desktop\Università\Magistrale - Biomedical Engineering - Polimi\Z DEEP LEARNING AND COMPUTER VISION\TDT4265-Assignements\assignment2'
+    if use_improved_weight_init:
+        filename = 'task3_train_loss_weights.png'
+        fig_task = os.path.join(path, filename)
+    else:
+        filename = 'task2c_train_loss.png'
+        fig_task = os.path.join(path, filename)
+
+    plt.savefig(fig_task)
