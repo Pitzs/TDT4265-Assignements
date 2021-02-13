@@ -60,9 +60,15 @@ class SoftmaxTrainer(BaseTrainer):
         # Backward step
         self.model.backward(X_batch, outputs, Y_batch)
 
+        # Using momentum
+        if self.use_momentum:
+            for w in range(len(self.model.ws)):
+                self.model.grads[w] = self.model.grads[w] + self.momentum_gamma*self.previous_grads[w]
+                self.previous_grads[w] = self.model.grads[w]
+
         # Updating the weights
-        self.model.ws[0] -= self.model.grads[0] * self.learning_rate
-        self.model.ws[1] -= self.model.grads[1] * self.learning_rate
+        for w in range(len(self.model.ws)):
+            self.model.ws[w] -= self.model.grads[w] * self.learning_rate
 
         # Computing the loss
         loss = cross_entropy_loss(Y_batch, outputs)
@@ -95,16 +101,16 @@ class SoftmaxTrainer(BaseTrainer):
 if __name__ == "__main__":
     # hyperparameters DO NOT CHANGE IF NOT SPECIFIED IN ASSIGNMENT TEXT
     num_epochs = 50
-    learning_rate = .1
+    learning_rate = .02
     batch_size = 32
     neurons_per_layer = [64, 10]
     momentum_gamma = .9  # Task 3 hyperparameter
     shuffle_data = True
 
     # Settings for task 3. Keep all to false for task 2.
-    use_improved_sigmoid = False
-    use_improved_weight_init = False
-    use_momentum = False
+    use_improved_sigmoid = True
+    use_improved_weight_init = True
+    use_momentum = True
 
     # Load dataset
     X_train, Y_train, X_val, Y_val = utils.load_full_mnist()
@@ -154,11 +160,20 @@ if __name__ == "__main__":
     plt.suptitle(f'Elapsed time (seconds): {elapsed:.4}',  fontsize=14, fontweight='bold')
     plt.legend()
 
-    # Saving image
+    # Saving image for different tasks
     path = r'C:\Users\aless\Desktop\Università\Magistrale - Biomedical Engineering - Polimi\Z DEEP LEARNING AND COMPUTER VISION\TDT4265-Assignements\assignment2'
-    if use_improved_weight_init:
+    if use_improved_weight_init & (not use_improved_sigmoid) & (not use_momentum):
         filename = 'task3_train_loss_weights.png'
         fig_task = os.path.join(path, filename)
+
+    elif use_improved_weight_init & use_improved_sigmoid & (not use_momentum):
+        filename = 'task3_train_loss_weights_sigm.png'
+        fig_task = os.path.join(path, filename)
+
+    elif use_improved_weight_init & use_improved_sigmoid & use_momentum:
+        filename = 'task3_train_loss_weights_sigm_mom.png'
+        fig_task = os.path.join(path, filename)
+
     else:
         filename = 'task2c_train_loss.png'
         fig_task = os.path.join(path, filename)

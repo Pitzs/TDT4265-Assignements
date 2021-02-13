@@ -14,6 +14,8 @@ def pre_process_images(X: np.ndarray):
     assert X.shape[1] == 784,\
         f"X.shape[1]: {X.shape[1]}, should be 784"
     # Normalization
+    # Focus more on motivations
+    # full = utils.load_full_mnist() # extract the mean/std of the X_train + X_val
     X = (X - np.mean(X))/np.std(X)
     # Bias trick
     X = np.concatenate((X, np.ones((X.shape[0], 1))), axis=1)
@@ -83,8 +85,16 @@ class SoftmaxModel:
         # HINT: For peforming the backward pass, you can save intermediate activations in varialbes in the forward pass.
         # such as self.hidden_layer_ouput = ...
         z1 = np.dot(X, self.ws[0])
+        # Improved sigmoid (Task 3)
+        if self.use_improved_sigmoid:
+            self.hidden_layer_output = 1.7159*np.tanh(2/3*z1)
+            self.der_sig = 1.7159*2/(3*np.power(np.cosh(2*z1/3), 2))
 
-        self.hidden_layer_output = 1/(1+np.exp(-z1))
+        # ..or traditional sigmoid
+        else:
+            self.hidden_layer_output = 1/(1+np.exp(-z1))
+            self.der_sig = self.hidden_layer_output*(1 - self.hidden_layer_output)
+
         z2 = np.dot(self.hidden_layer_output, self.ws[1])
         # Output
         exp = np.exp(z2)
@@ -109,9 +119,8 @@ class SoftmaxModel:
         delta_k = targets-outputs
         # Gradients respect of weights kj
         self.grads[1] = -np.dot(self.hidden_layer_output.T, delta_k)/X.shape[0]
-        sigmoid_der = self.hidden_layer_output*(1 - self.hidden_layer_output)
-        delta_j = -sigmoid_der*np.dot(delta_k, self.ws[1].T)
 
+        delta_j = -self.der_sig*np.dot(delta_k, self.ws[1].T)
         # Gradients respect to weights ji
         self.grads[0] = np.dot(X.T, delta_j)/X.shape[0]
 
